@@ -1,0 +1,60 @@
+-- CP05 Acceptance Tests
+-- Synthetic boundary tests for the deterministic inactivity policy.
+-- Read-only; does not modify CORE or ONTOLOGY tables.
+
+WITH PARAMETERS AS (
+    SELECT
+        TO_TIMESTAMP_NTZ('2026-10-12 12:00:00') AS EVALUATION_TIME,
+        48 AS THRESHOLD_HOURS
+),
+TEST_CASES AS (
+    SELECT
+        COLUMN1 AS TEST_CASE,
+        TO_TIMESTAMP_NTZ(COLUMN2) AS LAST_EVENT_TIME,
+        COLUMN3 AS LATEST_EVENT_COUNT,
+        COLUMN4 AS EVENT_STATUS,
+        COLUMN5 AS EXPECTED_DECISION
+    FROM VALUES
+        ('AMBIGUOUS_TIMESTAMP', '2026-10-09 10:00:00', 2,
+         'AT_WAREHOUSE', 'AMBIGUOUS_LATEST_EVENT'),
+        ('EXACTLY_48_HOURS', '2026-10-10 12:00:00', 1,
+         'AT_WAREHOUSE', 'NOT_ELIGIBLE'),
+        ('FUTURE_EVENT', '2026-10-12 13:00:00', 1,
+         'AT_WAREHOUSE', 'FUTURE_EVENT'),
+        ('OVER_48_HOURS', '2026-10-10 11:59:59', 1,
+         'AT_WAREHOUSE', 'ELIGIBLE')
+),
+DECISIONS AS (
+    SELECT
+        t.TEST_CASE,
+        t.EXPECTED_DECISION,
+        CASE
+            WHEN t.LATEST_EVENT_COUNT IS NULL
+                THEN 'NO_EVENT_EVIDENCE'
+            WHEN t.LATEST_EVENT_COUNT > 1
+                THEN 'AMBIGUOUS_LATEST_EVENT'
+            WHEN t.LAST_EVENT_TIME > p.EVALUATION_TIME
+                THEN 'FUTURE_EVENT'
+            WHEN t.EVENT_STATUS = 'AT_WAREHOUSE'
+             AND DATEDIFF(
+                 'second',
+                 t.LAST_EVENT_TIME,
+                 p.EVALUATION_TIME
+             ) > p.THRESHOLD_HOURS * 3600
+                THEN 'ELIGIBLE'
+            ELSE 'NOT_ELIGIBLE'
+        END AS ACTUAL_DECISION
+    FROM TEST_CASES t
+    CROSS JOIN PARAMETERS p
+)
+SELECT
+    TEST_CASE,
+    EXPECTED_DECISION,
+    ACTUAL_DECISION,
+    IFF(
+        EXPECTED_DECISION = ACTUAL_DECISION,
+        'PASS',
+        'FAIL'
+    ) AS TEST_RESULT
+FROM DECISIONS
+ORDER BY TEST_CASE;

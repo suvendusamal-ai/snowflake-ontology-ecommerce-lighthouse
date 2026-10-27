@@ -1,0 +1,159 @@
+-- CP03: Ontology Engineering
+-- E-commerce Delivery Ontology Lighthouse
+-- Non-destructive DDL and insert-only metadata loading.
+-- Prerequisite: CP01 and CP02.
+
+CREATE SCHEMA IF NOT EXISTS ECOM_ONTOLOGY_LIGHTHOUSE_DB.ONTOLOGY;
+
+CREATE TABLE IF NOT EXISTS ECOM_ONTOLOGY_LIGHTHOUSE_DB.ONTOLOGY.CLASS_DEFINITION (
+    CLASS_ID VARCHAR(50) NOT NULL PRIMARY KEY,
+    CLASS_NAME VARCHAR(100) NOT NULL,
+    CLASS_DESCRIPTION VARCHAR(500) NOT NULL,
+    SOURCE_DATABASE VARCHAR(255) NOT NULL,
+    SOURCE_SCHEMA VARCHAR(255) NOT NULL,
+    SOURCE_TABLE VARCHAR(255) NOT NULL,
+    IDENTIFIER_COLUMN VARCHAR(255) NOT NULL,
+    PROPERTIES VARIANT
+);
+
+CREATE TABLE IF NOT EXISTS ECOM_ONTOLOGY_LIGHTHOUSE_DB.ONTOLOGY.RELATIONSHIP_DEFINITION (
+    RELATIONSHIP_ID VARCHAR(50) NOT NULL PRIMARY KEY,
+    RELATIONSHIP_NAME VARCHAR(100) NOT NULL,
+    SOURCE_CLASS_ID VARCHAR(50) NOT NULL,
+    TARGET_CLASS_ID VARCHAR(50) NOT NULL,
+    DESCRIPTION VARCHAR(500) NOT NULL,
+    SOURCE_CARDINALITY VARCHAR(10),
+    TARGET_CARDINALITY VARCHAR(10),
+    IS_OPTIONAL BOOLEAN,
+    INVERSE_NAME VARCHAR(100),
+    FOREIGN KEY (SOURCE_CLASS_ID)
+        REFERENCES ECOM_ONTOLOGY_LIGHTHOUSE_DB.ONTOLOGY.CLASS_DEFINITION(CLASS_ID),
+    FOREIGN KEY (TARGET_CLASS_ID)
+        REFERENCES ECOM_ONTOLOGY_LIGHTHOUSE_DB.ONTOLOGY.CLASS_DEFINITION(CLASS_ID)
+);
+
+CREATE TABLE IF NOT EXISTS ECOM_ONTOLOGY_LIGHTHOUSE_DB.ONTOLOGY.ISSUE_TAXONOMY (
+    CHILD_ISSUE_ID VARCHAR(20) NOT NULL,
+    PARENT_ISSUE_ID VARCHAR(20) NOT NULL,
+    RELATIONSHIP_ID VARCHAR(50) NOT NULL,
+    DESCRIPTION VARCHAR(500),
+    PRIMARY KEY (CHILD_ISSUE_ID, PARENT_ISSUE_ID),
+    FOREIGN KEY (CHILD_ISSUE_ID)
+        REFERENCES ECOM_ONTOLOGY_LIGHTHOUSE_DB.CORE.DELIVERY_ISSUE(ISSUE_ID),
+    FOREIGN KEY (PARENT_ISSUE_ID)
+        REFERENCES ECOM_ONTOLOGY_LIGHTHOUSE_DB.CORE.DELIVERY_ISSUE(ISSUE_ID),
+    FOREIGN KEY (RELATIONSHIP_ID)
+        REFERENCES ECOM_ONTOLOGY_LIGHTHOUSE_DB.ONTOLOGY.RELATIONSHIP_DEFINITION(RELATIONSHIP_ID)
+);
+
+MERGE INTO ECOM_ONTOLOGY_LIGHTHOUSE_DB.ONTOLOGY.CLASS_DEFINITION t
+USING (
+    SELECT
+        column1 AS CLASS_ID,
+        column2 AS CLASS_NAME,
+        column3 AS CLASS_DESCRIPTION,
+        'ECOM_ONTOLOGY_LIGHTHOUSE_DB' AS SOURCE_DATABASE,
+        'CORE' AS SOURCE_SCHEMA,
+        column4 AS SOURCE_TABLE,
+        column5 AS IDENTIFIER_COLUMN,
+        PARSE_JSON(column6) AS PROPERTIES
+    FROM VALUES
+        ('CUSTOMER', 'Customer',
+         'A person who places e-commerce orders.',
+         'CUSTOMER', 'CUSTOMER_ID',
+         '[{"kind":"IDENTIFIER","name":"CUSTOMER_ID"},{"kind":"BUSINESS_ATTRIBUTE","name":"CUSTOMER_NAME"}]'),
+        ('CUSTOMER_ORDER', 'Customer Order',
+         'An e-commerce order placed by a customer.',
+         'CUSTOMER_ORDER', 'ORDER_ID',
+         '[{"kind":"IDENTIFIER","name":"ORDER_ID"},{"kind":"ENTITY_REFERENCE","name":"CUSTOMER_ID"},{"kind":"BUSINESS_DATE","name":"ORDER_DATE"},{"kind":"MONETARY_AMOUNT","name":"ORDER_AMOUNT"}]'),
+        ('DELIVERY_ISSUE', 'Delivery Issue',
+         'A business classification describing a delivery-related issue or condition.',
+         'DELIVERY_ISSUE', 'ISSUE_ID',
+         '[{"kind":"IDENTIFIER","name":"ISSUE_ID"},{"kind":"BUSINESS_CLASSIFICATION","name":"ISSUE_CATEGORY_NAME"},{"kind":"BUSINESS_DESCRIPTION","name":"ISSUE_DESCRIPTION"}]'),
+        ('SHIPMENT', 'Shipment',
+         'A physical delivery associated with an e-commerce order.',
+         'SHIPMENT', 'SHIPMENT_ID',
+         '[{"kind":"IDENTIFIER","name":"SHIPMENT_ID"},{"kind":"ENTITY_REFERENCE","name":"ORDER_ID"},{"kind":"OPTIONAL_ENTITY_REFERENCE","name":"ISSUE_ID"},{"kind":"OPERATIONAL_STATE","name":"SHIPMENT_STATUS"},{"kind":"BUSINESS_DATE","name":"EXPECTED_DELIVERY_DATE"}]'),
+        ('SHIPMENT_EVENT', 'Shipment Event',
+         'A timestamped tracking observation associated with a shipment.',
+         'SHIPMENT_EVENT', 'EVENT_ID',
+         '[{"kind":"IDENTIFIER","name":"EVENT_ID"},{"kind":"ENTITY_REFERENCE","name":"SHIPMENT_ID"},{"kind":"EVENT_TIMESTAMP","name":"EVENT_TIMESTAMP"},{"kind":"OBSERVED_STATE","name":"EVENT_STATUS"},{"kind":"EVIDENCE_CODE","name":"EVENT_ISSUE_CODE"},{"kind":"EVIDENCE_DESCRIPTION","name":"EVENT_DESCRIPTION"}]')
+) s
+ON t.CLASS_ID = s.CLASS_ID
+WHEN NOT MATCHED THEN INSERT (
+    CLASS_ID, CLASS_NAME, CLASS_DESCRIPTION,
+    SOURCE_DATABASE, SOURCE_SCHEMA, SOURCE_TABLE,
+    IDENTIFIER_COLUMN, PROPERTIES
+) VALUES (
+    s.CLASS_ID, s.CLASS_NAME, s.CLASS_DESCRIPTION,
+    s.SOURCE_DATABASE, s.SOURCE_SCHEMA, s.SOURCE_TABLE,
+    s.IDENTIFIER_COLUMN, s.PROPERTIES
+);
+
+MERGE INTO ECOM_ONTOLOGY_LIGHTHOUSE_DB.ONTOLOGY.RELATIONSHIP_DEFINITION t
+USING (
+    SELECT
+        column1 AS RELATIONSHIP_ID,
+        column1 AS RELATIONSHIP_NAME,
+        column2 AS SOURCE_CLASS_ID,
+        column3 AS TARGET_CLASS_ID,
+        column4 AS DESCRIPTION,
+        column5 AS SOURCE_CARDINALITY,
+        column6 AS TARGET_CARDINALITY,
+        column7 AS IS_OPTIONAL,
+        column8 AS INVERSE_NAME
+    FROM VALUES
+        ('CLASSIFIED_AS', 'SHIPMENT', 'DELIVERY_ISSUE',
+         'A shipment may be associated with one recorded delivery issue classification; classification does not establish root cause.',
+         '0..N', '0..1', TRUE, 'CLASSIFIES'),
+        ('FULFILLED_BY', 'CUSTOMER_ORDER', 'SHIPMENT',
+         'A customer order is fulfilled by one shipment in the simplified delivery model.',
+         '1', '1', FALSE, 'FULFILLS'),
+        ('HAS_EVENT', 'SHIPMENT', 'SHIPMENT_EVENT',
+         'A shipment has timestamped tracking events that provide operational evidence.',
+         '1', '1..N', FALSE, 'EVENT_OF'),
+        ('PLACED', 'CUSTOMER', 'CUSTOMER_ORDER',
+         'A customer places an e-commerce order.',
+         '1', '0..N', TRUE, 'PLACED_BY'),
+        ('SUBCATEGORY_OF', 'DELIVERY_ISSUE', 'DELIVERY_ISSUE',
+         'A delivery issue category may have one broader parent category. This is a classification hierarchy, not a causal relationship.',
+         '0..N', '0..1', TRUE, 'HAS_SUBCATEGORY')
+) s
+ON t.RELATIONSHIP_ID = s.RELATIONSHIP_ID
+WHEN NOT MATCHED THEN INSERT (
+    RELATIONSHIP_ID, RELATIONSHIP_NAME,
+    SOURCE_CLASS_ID, TARGET_CLASS_ID, DESCRIPTION,
+    SOURCE_CARDINALITY, TARGET_CARDINALITY,
+    IS_OPTIONAL, INVERSE_NAME
+) VALUES (
+    s.RELATIONSHIP_ID, s.RELATIONSHIP_NAME,
+    s.SOURCE_CLASS_ID, s.TARGET_CLASS_ID, s.DESCRIPTION,
+    s.SOURCE_CARDINALITY, s.TARGET_CARDINALITY,
+    s.IS_OPTIONAL, s.INVERSE_NAME
+);
+
+MERGE INTO ECOM_ONTOLOGY_LIGHTHOUSE_DB.ONTOLOGY.ISSUE_TAXONOMY t
+USING (
+    SELECT
+        column1 AS CHILD_ISSUE_ID,
+        column2 AS PARENT_ISSUE_ID,
+        'SUBCATEGORY_OF' AS RELATIONSHIP_ID,
+        column3 AS DESCRIPTION
+    FROM VALUES
+        ('ISS_002', 'ISS_001',
+         'Warehouse Dispatch Delay is a subcategory of Delivery Delay.'),
+        ('ISS_003', 'ISS_001',
+         'Carrier Delay is a subcategory of Delivery Delay.'),
+        ('ISS_004', 'ISS_001',
+         'Weather Delay is a subcategory of Delivery Delay.'),
+        ('ISS_005', 'ISS_001',
+         'Warehouse Inactivity is a subcategory of Delivery Delay; inactivity does not establish dispatch failure.')
+) s
+ON t.CHILD_ISSUE_ID = s.CHILD_ISSUE_ID
+AND t.PARENT_ISSUE_ID = s.PARENT_ISSUE_ID
+WHEN NOT MATCHED THEN INSERT (
+    CHILD_ISSUE_ID, PARENT_ISSUE_ID, RELATIONSHIP_ID, DESCRIPTION
+) VALUES (
+    s.CHILD_ISSUE_ID, s.PARENT_ISSUE_ID,
+    s.RELATIONSHIP_ID, s.DESCRIPTION
+);

@@ -27,6 +27,42 @@ Use an appropriately authorized deployment role in other environments.
 
 The packaged SQL uses fully qualified object references.
 
+## Canonical Business Model — Logical Architecture Retrofit
+
+The Canonical Business Model was documented retrospectively
+after the original CP01–CP05 implementation.
+
+It defines:
+- 5 canonical business entities
+- 20 canonical attributes
+- 5 canonical business relationships
+
+The model provides a logical business contract between
+the existing CORE physical tables and ONTOLOGY metadata.
+
+It does not introduce a CANONICAL schema, additional tables,
+transformation jobs, or a new execution checkpoint.
+
+The implementation remains unchanged:
+
+- CP01–CP02 establish and populate CORE business data.
+- CP03 defines ontology classes, relationships, and taxonomy.
+- CP04 materializes KG_NODE and KG_EDGE from existing sources.
+- CP05 performs graph traversal and deterministic reasoning.
+
+The canonical model documents how these existing components
+align. It is not an additional runtime processing stage.
+
+The 20 ontology semantic properties reside in
+`ONTOLOGY.CLASS_DEFINITION.PROPERTIES` (VARIANT).
+There is no separate PROPERTY_DEFINITION table.
+
+Canonical documentation:
+
+- [Canonical Business Model](canonical_business_model.md)
+- [Canonical-to-Physical Mapping](canonical_physical_mapping.md)
+- [Canonical-to-Ontology Alignment](canonical_ontology_alignment.md)
+- [Canonical-to-KG Traceability](canonical_kg_traceability.md)
 ## Execution Sequence
 
 Run from the repository root.

@@ -17,6 +17,10 @@ flowchart LR
         DI["DELIVERY_ISSUE"]
     end
 
+    subgraph CANONICAL["Canonical Business Model — Logical Contract"]
+        CM["5 Entities<br/>20 Attributes<br/>5 Relationships<br/>No Physical Schema"]
+    end
+
     subgraph META["ONTOLOGY Schema — Business Semantics"]
         CD["CLASS_DEFINITION<br/>5 Classes"]
         RD["RELATIONSHIP_DEFINITION<br/>5 Relationships"]
@@ -46,6 +50,16 @@ flowchart LR
     EV --> KN
     DI --> KN
 
+    CU -.-> CM
+    CO -.-> CM
+    SH -.-> CM
+    EV -.-> CM
+    DI -.-> CM
+
+    CM -.-> CD
+    CM -.-> RD
+    CM -.-> TX
+
     CD -.-> KN
     RD -.-> KE
     TX --> KE
@@ -55,8 +69,40 @@ flowchart LR
     TR --> LE
     LE --> PO
     PO --> RE
+
+    style CM stroke:#64748b,stroke-width:2px,stroke-dasharray:5 5
 ```
 
+## Canonical Business Model Alignment
+
+The Canonical Business Model was introduced retrospectively
+after CP01–CP05 as a logical business contract.
+
+It defines five business entities, 20 attributes, and five
+relationships aligned with the existing CORE physical schema
+and ONTOLOGY metadata.
+
+In the diagram, dashed links involving the canonical layer
+represent logical alignment, not physical data movement.
+
+The 20 semantic property definitions are stored in
+`ONTOLOGY.CLASS_DEFINITION.PROPERTIES` as VARIANT metadata.
+There is no separate PROPERTY_DEFINITION table.
+
+CP04 continues to materialize KG_NODE and KG_EDGE directly
+from CORE tables and ONTOLOGY.ISSUE_TAXONOMY.
+
+CP05 continues to query existing CORE and ONTOLOGY objects.
+
+No CANONICAL schema, additional transformation pipeline,
+or KG rebuild is required.
+
+Supporting documents:
+
+- [Canonical Business Model](canonical_business_model.md)
+- [Canonical-to-Physical Mapping](canonical_physical_mapping.md)
+- [Canonical-to-Ontology Alignment](canonical_ontology_alignment.md)
+- [Canonical-to-KG Traceability](canonical_kg_traceability.md)
 ## Business Relationships
 
 | Relationship | Source | Target | Meaning |

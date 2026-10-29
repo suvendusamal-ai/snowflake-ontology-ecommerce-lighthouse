@@ -30,6 +30,53 @@ an auditable decision.
 
 Both diagrams use Mermaid and are intended for GitHub rendering.
 
+## Canonical Business Model Retrofit
+
+Following the original CP01–CP05 implementation,
+a Canonical Business Model was introduced as a
+logical business contract between the existing
+CORE physical schema and ONTOLOGY semantic metadata.
+
+The resulting conceptual architecture is:
+
+```text
+CORE Physical Data Model
+          |
+          v
+Canonical Business Model (Logical)
+          |
+          v
+Ontology Semantic Metadata
+          |
+          v
+Materialized Knowledge Graph
+          |
+          v
+CP05 Business Reasoning
+```
+
+The canonical model defines five business entities,
+20 attributes, and five relationships, aligned with
+the existing ontology and physical source structures.
+
+This is a logical architecture refinement, not an
+additional deployed data-processing layer.
+
+The existing CP04 and CP05 SQL scripts continue to read
+CORE and ONTOLOGY objects directly.
+
+The CAN2–CAN5 retrofit validated the existing
+20 KG nodes, 19 KG edges, provenance relationships,
+and CP05 business reasoning continuity.
+
+Detailed documentation:
+
+- [Canonical Business Model](docs/canonical_business_model.md)
+- [Canonical-to-Physical Mapping](docs/canonical_physical_mapping.md)
+- [Canonical-to-Ontology Alignment](docs/canonical_ontology_alignment.md)
+- [Canonical-to-KG Traceability](docs/canonical_kg_traceability.md)
+- [Canonical Validation Summary](evidence/canonical_validation_summary.md)
+
 ## Implementation Checkpoints
 
 | Checkpoint | Capability | Deliverable |
@@ -82,7 +129,11 @@ snowflake-ontology/
 ├── docs/
 │   ├── L0_conceptual_architecture.md
 │   ├── L1_technical_architecture.md
-│   └── implementation_guide.md
+│   ├── implementation_guide.md
+│   ├── canonical_business_model.md
+│   ├── canonical_physical_mapping.md
+│   ├── canonical_ontology_alignment.md
+│   └── canonical_kg_traceability.md
 ├── sql/
 │   ├── cp01_core_schema.sql
 │   ├── cp02_seed_data.sql
@@ -94,7 +145,8 @@ snowflake-ontology/
 └── evidence/
     ├── README.md
     ├── cp05_investigation.txt
-    └── cp05_acceptance_tests.txt
+    ├── cp05_acceptance_tests.txt
+    └── canonical_validation_summary.md
 ```
 
 The legacy `cp1_ontology_foundation.sql` is preserved for
